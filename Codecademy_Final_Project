@@ -1,0 +1,462 @@
+from audioop import reverse
+from cProfile import label
+from random import randint, random
+import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+from spellchecker import SpellChecker
+
+''' ---------------------------    ESSAY QUESTIONS    -----------
+essay0 - My self summary
+essay1 - What I am doing with my life
+essay2 - I am really good at
+essay3 - The first thing people usually notice about me
+essay4 - Favorite books, movies, show, music, and food
+essay5 - The six things I could never do without
+essay6 - I spend a lot of time thinking about
+essay7 - On a typical Friday night I am
+essay8 - The most private thing I am willing to admit
+essay9 - You should message me if…
+--------------------------------------------------------------'''
+
+df = pd.read_csv(r"C:\Users\dster\OneDrive\Desktop\_codecademy\capstone_starter\profiles.csv")
+# print(df.columns)
+# print(df.height.value_counts())
+
+# =======================================================================================================================================
+'''   ======================================== ***    PRE-PROCESSING DATA    *** ===============================================    '''
+# =======================================================================================================================================
+
+
+#   -------------------------   PERCENT MISSSPELLED WORDS
+
+# #     Combining all essays
+
+essay_cols = ["essay0", "essay1", "essay2", "essay3", "essay4", "essay5", "essay6", "essay7", "essay8", "essay9"]
+all_essays = df[essay_cols].replace(np.nan, '', regex=True)
+all_essays = all_essays[essay_cols].apply(lambda x: ' '.join(x), axis=1)
+df["essay_words"] = all_essays.apply(lambda x: x.split())
+df["essay_len"] = all_essays.apply(lambda x: len(x))
+
+# #     Check spelling
+
+spell = SpellChecker()  
+amount_miss = []
+
+def word_check(lst):
+    for words in lst:
+        amount_miss.append(len(list(spell.unknown(words))))
+    return amount_miss
+
+# #     Creating colums
+
+df["num_misspelled"] = word_check(df["essay_words"])
+df["percent_misspelled"] = (df["num_misspelled"]/df["essay_len"])*100
+
+
+
+#   -------------------------  MAPING INCOME
+
+# df["income_clean"] = df["income"].apply(lambda x: np.nan if x<0 and x>300000 else x)
+
+def sort_income(lst):
+    scaled_income = []
+    for i in lst:
+        if i <= 0:
+            scaled_income.append(np.nan)
+        elif 300000<i:
+            scaled_income.append(np.nan)
+        else:
+            scaled_income.append(i)
+    return scaled_income
+df["income_clean"] = sort_income(df["income"])
+
+        
+
+# def sort_income(lst):
+#     ppl_income=[]
+#     for i in lst:
+#         if i < 30000:
+#             ppl_income.append('0')
+#         elif 30000<=i<60000:
+#             ppl_income.append('1')
+#         elif 60000<=i<100000:
+#             ppl_income.append('2')
+#         elif 100000<=i<150000:
+#             ppl_income.append('3')
+#         elif i>=150000:
+#             ppl_income.append('4')
+#     return ppl_income
+# df["income_mapped"] = sort_income(df["income"])
+
+# plt.hist(df.income_mapped,  bins=20)
+# plt.xlabel("income_mapped")
+# plt.ylabel("Frequency")
+# # plt.xlim(0, 1000000)
+# plt.show()
+
+
+
+#   -------------------------   MAPING EDUCATION     
+  
+education_change = {'graduated from high school': 0.4, 'dropped out of college/university': 0.6, 'dropped out of two-year college': 0.5,
+                    'dropped out of high school': 0.1, 'high school': 0.3, 'working on high school': 0.2,
+
+                    'graduated from two-year college': 2.75, 'working on two-year college': 2.25, 'two-year college': 2.5,
+
+                    'graduated from college/university': 3.33, 'working on college/university': 3.22, 'college/university': 3.11, 
+                    'dropped out of law school': 3.66, 'dropped out of med school': 3.77, 'dropped out of masters program': 3.44,
+                    'dropped out of ph.d program': 3.55,
+
+                    'graduated from masters program': 4.3, 'working on masters program': 4.1, 'graduated from ph.d program': 4.4,
+                    'graduated from law school': 4.8, 'graduated from med school': 4.9, 'working on law school': 4.6, 'working on med school': 4.7,
+                    'masters program': 4.2, 'ph.d program': 4.3, 'law school': 4.4, 'med school': 4.5,
+
+                    'graduated from space camp': 1.8, 'dropped out of space camp': 1, 'working on space camp': 1.2, 
+                    'space camp': 1.6
+}
+df["education_mapped"] = df["education"].map(education_change)
+
+#   ----> Change to Binary Mapping where,    x<No University [0]  and   x>University [1]
+
+# education_change_binary = {'graduated from high school': 0, 'dropped out of college/university': 0, 'dropped out of two-year college': 0,
+#                     'dropped out of high school': 0, 'high school': 0, 'working on high school': 0,
+
+#                     'graduated from two-year college': 0, 'working on two-year college': 0, 'two-year college': 0,
+
+#                     'graduated from college/university': 1, 'working on college/university': 1, 'college/university': 1, 
+#                     'dropped out of law school': 1, 'dropped out of med school': 1, 'dropped out of masters program': 1,
+
+#                     'graduated from masters program': 1, 'working on masters program': 1, 'graduated from ph.d program': 1,
+#                     'graduated from law school': 1, 'graduated from med school': 1, 'working on law school': 1, 'working on med school': 1,
+#                     'masters program': 1, 'dropped out of ph.d program': 1, 'ph.d program': 1, 'law school': 1, 'med school': 1,
+
+#                     'graduated from space camp': 0, 'dropped out of space camp': 0, 'working on space camp': 0, 
+#                     'graduated from space camp': 0, 'space camp': 0
+# }
+# df["education_mapped"] = df["education"].map(education_change_binary)
+
+
+
+#   -------------------------   MAPPING RELATIONSHIP STATUS     -----------------
+
+status_map = {'single': 0, 'available': 1, 'seeing someone': 2, 'married': 3, 'unknown': 4}
+df["status_mapped"] = df["status"].map(status_map)
+
+
+
+#   -------------------------   MAPPING HEIGHT     -----------------
+
+df["height_clean"] = df["height"].apply(lambda x: np.nan if x<55 else x)
+
+
+
+# --------- Two Ways to Plot Multiple Histagrams ------------
+
+# fig = plt.figure(figsize=(20,10))
+# i= 0
+# for column in df_numerical2:
+#     sub = fig.add_subplot(2,4, i+1)
+#     sub.set_xlabel(column)
+#     df_numerical2[column].plot(kind= 'hist')
+#     i = i+1
+# plt.show()
+
+# ---- histagram stategy #2
+
+# for column in df_numerical2:
+#     plt.figure(column)
+#     plt.title(column)
+#     df_numerical2[column].plot(kind= 'hist')
+# plt.show()
+
+
+
+# =======================================================================================================================================
+'''   ======================================== ***    CLASSIFICATION MODELS    *** ===============================================    '''
+# =======================================================================================================================================
+
+
+
+#           DROPING NaN AND CHANGING TO FLOATS
+
+classification_colums = ['age', 'height', 'education_mapped', 'status_mapped', 
+                    'income_clean', 'essay_len', 'num_misspelled', 'percent_misspelled']
+df_numerical = df[classification_colums]
+df_numerical2 = df_numerical.dropna(subset= classification_colums )
+
+from sklearn import preprocessing
+# fix error or encoding
+from sklearn import utils
+
+###     MinMaxScaling    ###  IF NEEDED
+# x = df_numerical2.values
+# min_max_scaler = preprocessing.MinMaxScaler()
+# x_scaled = min_max_scaler.fit_transform(x)
+# df_numerical2 = pd.DataFrame(x_scaled, columns=df_numerical2.columns)
+
+
+# Changing types to floats
+for i in df_numerical2:
+    df_numerical2[i]=df_numerical2[i].astype(float)
+
+
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+
+
+X = df_numerical2.drop(['education_mapped'], axis=1)
+y = df_numerical2["education_mapped"]
+
+#   ERROR:
+#           check_classification_targets
+#                raise ValueError("Unknown label type: %r" % y_type)
+#           ValueError: Unknown label type: 'continuous'
+
+#  TO FIX Error ---> Label Needs to be Encoded
+
+# *Encoding*  ###    MinMaxScaling    ### Note: Its better to encode before splitting
+
+# lab_enc = preprocessing.LabelEncoder()
+# y = lab_enc.fit_transform(y)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
+
+# # # CREATING A PIPELINE # # #
+
+model_pipeline = []
+model_pipeline.append(LogisticRegression(solver='liblinear'))
+model_pipeline.append(SVC())
+model_pipeline.append(KNeighborsClassifier())
+model_pipeline.append(DecisionTreeClassifier())
+model_pipeline.append(RandomForestClassifier())
+model_pipeline.append(GaussianNB())
+
+model_list = ['Logistic Regression', 'SVM', 'KNN', 'Decision Tree', 'Random Forest', 'Naive Bayes']
+
+acc_list = []
+pre_list = []
+recall_list = []
+cm_list = []
+auc_list = []
+
+for model in model_pipeline:
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    acc_list.append(metrics.accuracy_score(y_test, y_pred))
+    pre_list.append(metrics.precision_score(y_test, y_pred)) ## , pos_label='positive', average='micro'   ###   MinMaxScaling    ###
+    recall_list.append(metrics.recall_score(y_test, y_pred)) ## , pos_label='positive', average='micro'   ###   MinMaxScaling    ###
+    # fpr, tpr, thresholds = metrics.roc_curve(y_test, y_pred)
+    # auc_list.append(round(metrics.auc(fpr, tpr), 2))
+    cm_list.append(confusion_matrix(y_test, y_pred))
+
+print(acc_list)
+print(pre_list)
+print(recall_list)
+# print(auc_list)
+
+
+# RESULTS-------------------------------------------------------------------------------
+'''-------- Binary Accuracy/Precision/Recal  ------- '''
+
+# LogisticRegression:     0.8562147702302474        0.8562147702302474      1.0
+# SVC:                    0.8560236935129455        0.8562147702302474      1.0
+# KNN:                    0.8458010891372886        0.8635014836795252      0.9741129212229414
+# Decision Tree:          0.765357791153148         0.8688082668763338      0.8630885962954697
+# Random Forest:          0.8522021591669056        0.8666929599684481      0.9808078553894221
+# Naive Bayes:            0.8378714053692558        0.8586786551993745      0.98036152644499
+
+'''------  Non-Binary Accuracy  ----- '''
+# LogisticRegression:     0.5816375274672781
+# SVC:                    0.5838349097162511
+# KNN:                    0.531766504251457
+# Decision Tree:          0.45065443775675934
+# Random Forest:          0.5557466322728576
+# Naive Bayes:            0.5539314034584886
+# ------------------------------------------------------------------------------------------
+
+
+''' -----  HEAT MAP (BINARY ONLY) ------ '''
+fig = plt.figure(figsize=(18,10))
+for i in range(len(cm_list)):
+    cm = cm_list[i]
+    model = model_list[i]
+    sub = fig.add_subplot(2,3, i+1).set_title(model)
+    cm_plot = sns.heatmap(cm, annot=True, cmap = 'Blues_r')
+    cm_plot.set_xlabel('Predictied Values')
+    cm_plot.set_ylabel('Actual Values')
+plt.show()
+
+# =======================================================================================================================================
+'''   ======================================= ***    LINEAR REGRESSION MODELS    *** ==============================================    '''
+# =======================================================================================================================================
+
+from sklearn.linear_model import LinearRegression
+from numpy.random import randint
+
+
+
+'''# --------------    EDUCATION vs INCOME    ---------------- '''
+
+df_lr = df.dropna(subset=["income_clean", "education_mapped"])
+
+X_data = df_lr["education_mapped"]
+X_data = X_data.values.reshape(-1, 1)
+y_data = df_lr["income_clean"]
+
+X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.2, random_state=42)
+
+lr_model = LinearRegression()
+lr_model.fit(X_train, y_train)
+
+y_predict = lr_model.predict(X_test)
+
+intercept = lr_model.intercept_
+slope = lr_model.coef_
+
+print('Intercept:       %s' %intercept)
+print('Coefficients:    %s' %slope)
+print('Mean Squared error:  %s' %np.sqrt(metrics.mean_squared_error(y_test, y_predict)))
+
+# RESULTS ---------------------------------------------------------
+# Intercept:         3.229553936547961          # NON-BINARY
+# Coefficients:      [0.02904375]
+# MSE:               0.9657546304006928
+
+# Intercept:         0.8054581918999397         # BINARY
+# Coefficients:      [0.01547594]
+# MSE:               0.35059819832376765
+#-------------------------------------------------------------------
+
+plt.scatter(X_train, y_train, c="b", alpha=0.5)
+plt.plot(X_test, y_predict, c="g", alpha=0.5)
+plt.title('Education Vs. Income')
+plt.xlabel("Education Level")
+plt.ylabel("Income")
+plt.show()
+
+
+
+''' # --------------    HEIGHT vs INCOME    ---------------- '''
+
+df_lr2 = df.dropna(subset=["height_clean", "income_clean"])
+
+X_data2 = df_lr2["height_clean"]
+X_data2 = X_data2.values.reshape(-1 ,1)
+y_data2 = df_lr2["income_clean"]
+
+X_train, X_test, y_train, y_test = train_test_split(X_data2, y_data2, test_size=0.2, random_state=42)
+
+lr_model2 = LinearRegression()
+lr_model2.fit(X_train, y_train)
+
+intercept = lr_model2.intercept_
+slope = lr_model2.coef_
+
+y_predict2 = lr_model2.predict(X_test)
+
+print('Intercept:         %s' %intercept)
+print('Coefficients:      %s' %slope)
+print('MSE:  %s' %np.sqrt(metrics.mean_squared_error(y_test, y_predict2)))
+
+# RESULTS ---------------------------------------
+# Intercept:         -50540.2788674303
+# Coefficients:      [1595.77836791]
+# MSE:  42945.10524289836
+#-------------------------------------------------
+
+plt.scatter(X_train, y_train, c="b", alpha=0.5)
+plt.plot(X_test, y_predict2, c="g", alpha=0.5)
+plt.title('Height Vs. Income')
+plt.xlabel("Height (in)")
+plt.ylabel("Income")
+plt.show()
+
+
+# IF YOU WANT TO TEST SOME FUTURE POINTS
+
+# X_future = np.array(randint(55, 90, 10))
+# X_future = X_future.reshape(-1, 1)
+# future_predict = lr_model2.predict(X_future)
+# print(future_predict)
+
+
+
+'''# --------------    Multiple Linear Regression   ---------------- '''
+
+df_lr3 = df.dropna(subset=["income_clean", "height_clean", "education_mapped"])
+
+features = df_lr3[["height_clean", "education_mapped"]]
+labels = df_lr3["income_clean"]
+
+X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+
+mlr_model = LinearRegression()
+mlr_model.fit(X_train, y_train)
+
+y_pred = mlr_model.predict(X_test)
+
+intercept = mlr_model.intercept_
+slope = mlr_model.coef_
+mse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+
+print('Intercept:           %s' %intercept)
+print('Coefficients:        %s' %slope)
+print('Mean Squared error:  %s' %mse)
+
+# RESULTS ------------------------------------------------
+# Intercept:           -92657.4395254867
+# Coefficients:        [ 1734.82610605 10842.13259494]
+# Mean Squared error:  38873.054789623
+# ---------------------------------------------------------
+
+# plt.scatter(X_train, y_train, c="b", alpha=0.5)
+# plt.plot(X_test, y_pred, c="g", alpha=0.5)
+# plt.xlabel("Height (in)")
+# plt.ylabel("Income")
+# plt.show()
+
+'''# --------------    MISSPELLED WORDS vs EDUCATION    ---------------- '''
+
+df_lr4 = df.dropna(subset=['education_mapped', 'percent_misspelled'])
+
+X_data = df_lr4['percent_misspelled']
+X_data = X_data.values.reshape(-1, 1)
+labels = df_lr4['education_mapped']
+
+X_train, X_test, y_train, y_test = train_test_split(X_data, labels, test_size=0.2, random_state=42)
+
+lr_model4 = LinearRegression()
+lr_model4.fit(X_train, y_train)
+y_pred = lr_model4.predict(X_test)
+
+intercept = lr_model4.intercept_
+slope = lr_model4.coef_
+mse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+
+print('Intercept:         %s' %intercept)
+print('Coefficients:      %s' %slope)
+print('MSE:               %s' %mse)
+
+# RESULTS -----------------------------------------
+# Intercept:         3.229553936547961
+# Coefficients:      [0.02904375]
+# MSE:               0.9657546304006928
+#---------------------------------------------------
+
+plt.scatter(X_train, y_train, c="b", alpha=0.5)
+plt.plot(X_test, y_pred, c="g", alpha=0.5)
+plt.title('Percent Misspelled Vs. Education Level')
+plt.xlabel('Percent Misspelled')
+plt.ylabel('Education Level')
+plt.show()
